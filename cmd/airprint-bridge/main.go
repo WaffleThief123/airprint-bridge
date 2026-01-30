@@ -265,7 +265,14 @@ func listAvailableProfiles() {
 		}
 		fmt.Printf("  %s\n", name)
 		fmt.Printf("    Auto-detects: %s\n", strings.Join(p.ModelMatch, ", "))
-		fmt.Printf("    Sizes: %s\n", strings.Join(p.MediaSizes, ", "))
+		fmt.Printf("    Sizes:\n")
+		for _, size := range p.Sizes {
+			if size.Description != "" {
+				fmt.Printf("      - %-35s  %s\n", size.Name, size.Description)
+			} else {
+				fmt.Printf("      - %s\n", size.Name)
+			}
+		}
 		fmt.Printf("    Default: %s\n", p.DefaultMedia)
 		fmt.Println()
 	}

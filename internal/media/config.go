@@ -17,14 +17,18 @@ func (r *Registry) ApplyConfigOverrides(overrides []ConfigOverride) {
 				r.SetCustom(o.PrinterName, *p)
 			}
 		} else if len(o.MediaSizes) > 0 {
-			// Custom media list
+			// Custom media list - convert strings to MediaSize
+			sizes := make([]MediaSize, len(o.MediaSizes))
+			for i, name := range o.MediaSizes {
+				sizes[i] = MediaSize{Name: name, Description: ""}
+			}
 			p := Profile{
 				Name:         "custom-" + o.PrinterName,
-				MediaSizes:   o.MediaSizes,
+				Sizes:        sizes,
 				DefaultMedia: o.DefaultMedia,
 			}
-			if p.DefaultMedia == "" && len(p.MediaSizes) > 0 {
-				p.DefaultMedia = p.MediaSizes[0]
+			if p.DefaultMedia == "" && len(p.Sizes) > 0 {
+				p.DefaultMedia = p.Sizes[0].Name
 			}
 			r.SetCustom(o.PrinterName, p)
 		}

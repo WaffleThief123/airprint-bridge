@@ -4,12 +4,18 @@ import (
 	"strings"
 )
 
+// MediaSize pairs an IPP media name with a human-readable description
+type MediaSize struct {
+	Name        string // IPP media size name
+	Description string // Human-readable description
+}
+
 // Profile defines media sizes for a specific printer model
 type Profile struct {
-	Name         string   // Profile name for config reference
-	ModelMatch   []string // Substrings to match in printer make/model
-	MediaSizes   []string // IPP media size names
-	DefaultMedia string   // Default media size
+	Name         string      // Profile name for config reference
+	ModelMatch   []string    // Substrings to match in printer make/model
+	Sizes        []MediaSize // Media sizes with descriptions
+	DefaultMedia string      // Default media size
 }
 
 // builtinProfiles contains known printer media configurations
@@ -17,46 +23,46 @@ var builtinProfiles = []Profile{
 	{
 		Name:       "zebra-4x6",
 		ModelMatch: []string{"Zebra", "ZPL"},
-		MediaSizes: []string{
-			"oe_4x6-label_4x6in",
-			"oe_4x4-label_4x4in",
-			"oe_4x3-label_4x3in",
-			"oe_4x2-label_4x2in",
-			"oe_2.25x1.25-label_2.25x1.25in",
+		Sizes: []MediaSize{
+			{"oe_4x6-label_4x6in", "4x6 inch shipping label"},
+			{"oe_4x4-label_4x4in", "4x4 inch square label"},
+			{"oe_4x3-label_4x3in", "4x3 inch label"},
+			{"oe_4x2-label_4x2in", "4x2 inch label"},
+			{"oe_2.25x1.25-label_2.25x1.25in", "2.25x1.25 inch barcode label"},
 		},
 		DefaultMedia: "oe_4x6-label_4x6in",
 	},
 	{
 		Name:       "dymo-labelwriter",
 		ModelMatch: []string{"DYMO", "LabelWriter"},
-		MediaSizes: []string{
-			"oe_w167h288_30256",   // Shipping label 2.31" x 4"
-			"oe_w79h252_30252",    // Address label 1.12" x 3.5"
-			"oe_w101h252_30320",   // Address label 1.4" x 3.5"
-			"oe_w54h144_30330",    // Return address 0.75" x 2"
-			"oe_w162h90_30323",    // Shipping label 2.12" x 1.25"
+		Sizes: []MediaSize{
+			{"oe_w167h288_30256", "Shipping label 2.31\" x 4\" (#30256)"},
+			{"oe_w79h252_30252", "Address label 1.12\" x 3.5\" (#30252)"},
+			{"oe_w101h252_30320", "Address label 1.4\" x 3.5\" (#30320)"},
+			{"oe_w54h144_30330", "Return address 0.75\" x 2\" (#30330)"},
+			{"oe_w162h90_30323", "Shipping label 2.12\" x 1.25\" (#30323)"},
 		},
 		DefaultMedia: "oe_w167h288_30256",
 	},
 	{
 		Name:       "brother-ql",
 		ModelMatch: []string{"Brother", "QL-"},
-		MediaSizes: []string{
-			"oe_62x100mm_62x100mm",
-			"oe_62x29mm_62x29mm",
-			"oe_29x90mm_29x90mm",
-			"oe_17x54mm_17x54mm",
-			"oe_12mm_12mm",
+		Sizes: []MediaSize{
+			{"oe_62x100mm_62x100mm", "62x100mm shipping label"},
+			{"oe_62x29mm_62x29mm", "62x29mm address label"},
+			{"oe_29x90mm_29x90mm", "29x90mm narrow label"},
+			{"oe_17x54mm_17x54mm", "17x54mm small label"},
+			{"oe_12mm_12mm", "12mm continuous tape"},
 		},
 		DefaultMedia: "oe_62x100mm_62x100mm",
 	},
 	{
 		Name:       "rollo",
 		ModelMatch: []string{"Rollo"},
-		MediaSizes: []string{
-			"oe_4x6-label_4x6in",
-			"oe_4x4-label_4x4in",
-			"oe_4x2-label_4x2in",
+		Sizes: []MediaSize{
+			{"oe_4x6-label_4x6in", "4x6 inch shipping label"},
+			{"oe_4x4-label_4x4in", "4x4 inch square label"},
+			{"oe_4x2-label_4x2in", "4x2 inch label"},
 		},
 		DefaultMedia: "oe_4x6-label_4x6in",
 	},
@@ -113,11 +119,20 @@ func (r *Registry) ApplyProfile(printerName, makeModel string, cupsMedia []strin
 	profile := r.GetProfile(printerName, makeModel)
 
 	if profile != nil {
-		return profile.MediaSizes, profile.DefaultMedia
+		return profile.MediaNames(), profile.DefaultMedia
 	}
 
 	// No profile match, use CUPS values
 	return cupsMedia, cupsDefault
+}
+
+// MediaNames returns just the IPP media names from the profile
+func (p *Profile) MediaNames() []string {
+	names := make([]string, len(p.Sizes))
+	for i, s := range p.Sizes {
+		names[i] = s.Name
+	}
+	return names
 }
 
 // ListProfiles returns all available profile names
