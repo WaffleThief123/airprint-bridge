@@ -5,6 +5,11 @@ cups:
   host: localhost
   port: 631
 
+# IPP proxy server settings
+# This is the server that iOS/macOS will connect to
+ipp:
+  port: 8631
+
 # Monitoring settings
 monitor:
   # How often to poll CUPS for printer changes

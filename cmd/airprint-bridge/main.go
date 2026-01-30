@@ -27,6 +27,10 @@ type ConfigFile struct {
 		Port int    `yaml:"port"`
 	} `yaml:"cups"`
 
+	IPP struct {
+		Port int `yaml:"port"`
+	} `yaml:"ipp"`
+
 	Monitor struct {
 		PollInterval string `yaml:"poll_interval"`
 	} `yaml:"monitor"`
@@ -50,15 +54,16 @@ type ConfigFile struct {
 func main() {
 	// Command line flags
 	var (
-		configPath  = flag.String("config", "/etc/airprint-bridge/airprint-bridge.yaml", "path to config file")
-		cupsHost    = flag.String("cups-host", "", "CUPS server host (default: localhost)")
-		cupsPort    = flag.Int("cups-port", 0, "CUPS server port (default: 631)")
+		configPath   = flag.String("config", "/etc/airprint-bridge/airprint-bridge.yaml", "path to config file")
+		cupsHost     = flag.String("cups-host", "", "CUPS server host (default: localhost)")
+		cupsPort     = flag.Int("cups-port", 0, "CUPS server port (default: 631)")
+		ippPort      = flag.Int("ipp-port", 0, "IPP proxy server port (default: 8631)")
 		pollInterval = flag.String("poll-interval", "", "printer polling interval (default: 30s)")
-		serviceDir  = flag.String("service-dir", "", "Avahi services directory")
-		sharedOnly  = flag.Bool("shared-only", true, "only advertise shared printers")
-		logLevel    = flag.String("log-level", "", "log level: debug, info, warn, error")
-		logFormat   = flag.String("log-format", "", "log format: json, console")
-		showVersion = flag.Bool("version", false, "show version and exit")
+		serviceDir   = flag.String("service-dir", "", "Avahi services directory")
+		sharedOnly   = flag.Bool("shared-only", true, "only advertise shared printers")
+		logLevel     = flag.String("log-level", "", "log level: debug, info, warn, error")
+		logFormat    = flag.String("log-format", "", "log format: json, console")
+		showVersion  = flag.Bool("version", false, "show version and exit")
 	)
 	flag.Parse()
 
@@ -83,6 +88,9 @@ func main() {
 	}
 	if *cupsPort != 0 {
 		config.CUPSPort = *cupsPort
+	}
+	if *ippPort != 0 {
+		config.IPPPort = *ippPort
 	}
 	if *pollInterval != "" {
 		if d, err := time.ParseDuration(*pollInterval); err == nil {
@@ -136,6 +144,9 @@ func applyFileConfig(config *daemon.Config, cfg *ConfigFile) {
 	}
 	if cfg.CUPS.Port != 0 {
 		config.CUPSPort = cfg.CUPS.Port
+	}
+	if cfg.IPP.Port != 0 {
+		config.IPPPort = cfg.IPP.Port
 	}
 	if cfg.Monitor.PollInterval != "" {
 		if d, err := time.ParseDuration(cfg.Monitor.PollInterval); err == nil {

@@ -65,16 +65,10 @@ func NewTXTRecords(printer *cups.Printer) *TXTRecords {
 		t.Set("Duplex", "F")
 	}
 
-	// Paper sizes (optional but helpful)
-	if len(printer.MediaSupported) > 0 {
-		sizes := normalizePaperSizes(printer.MediaSupported)
-		if len(sizes) > 0 {
-			t.Set("media", strings.Join(sizes, ","))
-		}
-	}
-
-	// Printer state
-	t.Set("printer-state", fmt.Sprintf("%d", printer.State))
+	// NOTE: We deliberately skip the "media" TXT record because:
+	// 1. It can be very long for label printers and break Avahi
+	// 2. iOS queries the printer directly via IPP for media sizes
+	// 3. It's optional for AirPrint discovery
 
 	// Additional AirPrint identifiers
 	t.Set("product", fmt.Sprintf("(%s)", sanitizeProduct(printer.MakeModel)))

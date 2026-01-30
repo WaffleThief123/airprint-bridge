@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,12 +13,14 @@ import (
 
 	"github.com/cyra/airprint-cups-plugin/internal/avahi"
 	"github.com/cyra/airprint-cups-plugin/internal/cups"
+	"github.com/cyra/airprint-cups-plugin/internal/ipp"
 )
 
 // Config holds the daemon configuration
 type Config struct {
 	CUPSHost     string
 	CUPSPort     int
+	IPPPort      int // Port for our IPP proxy server
 	PollInterval time.Duration
 	ServiceDir   string
 	FilePrefix   string
@@ -30,6 +33,7 @@ func DefaultConfig() Config {
 	return Config{
 		CUPSHost:     "localhost",
 		CUPSPort:     631,
+		IPPPort:      8631,
 		PollInterval: 30 * time.Second,
 		ServiceDir:   "/etc/avahi/services",
 		FilePrefix:   "airprint-",
@@ -43,6 +47,7 @@ type Daemon struct {
 	config       Config
 	cupsClient   *cups.Client
 	avahiManager *avahi.Manager
+	ippServers   map[string]*ipp.Server
 	log          zerolog.Logger
 }
 
@@ -52,7 +57,7 @@ func New(config Config, log zerolog.Logger) *Daemon {
 	avahiManager := avahi.NewManager(
 		config.ServiceDir,
 		config.FilePrefix,
-		config.CUPSPort,
+		config.IPPPort, // Use IPP proxy port, not CUPS port
 		log,
 	)
 
@@ -60,6 +65,7 @@ func New(config Config, log zerolog.Logger) *Daemon {
 		config:       config,
 		cupsClient:   cupsClient,
 		avahiManager: avahiManager,
+		ippServers:   make(map[string]*ipp.Server),
 		log:          log.With().Str("component", "daemon").Logger(),
 	}
 }
@@ -69,6 +75,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	d.log.Info().
 		Str("cups_host", d.config.CUPSHost).
 		Int("cups_port", d.config.CUPSPort).
+		Int("ipp_port", d.config.IPPPort).
 		Dur("poll_interval", d.config.PollInterval).
 		Str("service_dir", d.config.ServiceDir).
 		Bool("shared_only", d.config.SharedOnly).
@@ -85,20 +92,55 @@ func (d *Daemon) Run(ctx context.Context) error {
 		return err
 	}
 
-	// Discover any existing service files from previous runs
-	if err := d.avahiManager.DiscoverExisting(); err != nil {
-		d.log.Warn().Err(err).Msg("failed to discover existing service files")
+	// Get initial printer list
+	printers, err := d.cupsClient.GetPrinters()
+	if err != nil {
+		return fmt.Errorf("failed to get printers: %w", err)
+	}
+	d.log.Info().Int("count", len(printers)).Msg("discovered printers")
+
+	// Start the IPP proxy server
+	cupsProxy := ipp.NewCUPSProxy(d.config.CUPSHost, d.config.CUPSPort)
+
+	// Determine local IP for advertising
+	localIP := d.getLocalIP()
+	d.log.Info().Str("local_ip", localIP).Msg("detected local IP")
+
+	// Start IPP server
+	listenAddr := fmt.Sprintf(":%d", d.config.IPPPort)
+
+	// For now, use first printer (we can expand to multiple later)
+	var printerConfig ipp.PrinterConfig
+	if len(printers) > 0 {
+		p := printers[0]
+		printerConfig = ipp.PrinterConfig{
+			Name:        p.Name,
+			MakeModel:   p.MakeModel,
+			Location:    p.Location,
+			Color:       p.ColorSupported,
+			Duplex:      p.DuplexSupported,
+			Resolutions: p.Resolutions,
+		}
+	}
+
+	ippServer := ipp.NewServer(listenAddr, cupsProxy, printerConfig, d.log)
+
+	// Start IPP server in background
+	go func() {
+		if err := ippServer.ListenAndServe(); err != nil {
+			d.log.Error().Err(err).Msg("IPP server failed")
+		}
+	}()
+	d.log.Info().Int("port", d.config.IPPPort).Msg("started IPP proxy server")
+
+	// Update Avahi service files
+	if err := d.avahiManager.UpdatePrinters(printers, d.config.SharedOnly, d.config.ExcludeList); err != nil {
+		d.log.Error().Err(err).Msg("failed to update service files")
 	}
 
 	// Set up signal handling
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
-
-	// Initial printer sync
-	if err := d.syncPrinters(); err != nil {
-		d.log.Error().Err(err).Msg("initial printer sync failed")
-		// Continue anyway, will retry on next poll
-	}
 
 	// Main loop
 	ticker := time.NewTicker(d.config.PollInterval)
@@ -175,4 +217,22 @@ func (d *Daemon) verifyServiceDir() error {
 	os.Remove(testFile)
 
 	return nil
+}
+
+// getLocalIP returns the local IP address for advertising
+func (d *Daemon) getLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "127.0.0.1"
+	}
+
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+
+	return "127.0.0.1"
 }
