@@ -3,7 +3,7 @@ package airprint
 import (
 	"testing"
 
-	"github.com/cyra/airprint-cups-plugin/internal/cups"
+	"github.com/WaffleThief123/airprint-bridge/internal/cups"
 )
 
 func TestNewTXTRecords(t *testing.T) {

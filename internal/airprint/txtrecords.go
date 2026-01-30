@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cyra/airprint-cups-plugin/internal/cups"
+	"github.com/WaffleThief123/airprint-bridge/internal/cups"
 )
 
 // TXTRecords holds the DNS-SD TXT records for AirPrint advertisement

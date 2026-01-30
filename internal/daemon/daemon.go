@@ -11,10 +11,10 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/cyra/airprint-cups-plugin/internal/avahi"
-	"github.com/cyra/airprint-cups-plugin/internal/cups"
-	"github.com/cyra/airprint-cups-plugin/internal/ipp"
-	"github.com/cyra/airprint-cups-plugin/internal/media"
+	"github.com/WaffleThief123/airprint-bridge/internal/avahi"
+	"github.com/WaffleThief123/airprint-bridge/internal/cups"
+	"github.com/WaffleThief123/airprint-bridge/internal/ipp"
+	"github.com/WaffleThief123/airprint-bridge/internal/media"
 )
 
 // Config holds the daemon configuration

@@ -1,4 +1,4 @@
-module github.com/cyra/airprint-cups-plugin
+module github.com/WaffleThief123/airprint-bridge
 
 go 1.21
 

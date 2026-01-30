@@ -11,9 +11,9 @@ import (
 	"github.com/rs/zerolog"
 	"gopkg.in/yaml.v3"
 
-	"github.com/cyra/airprint-cups-plugin/internal/cups"
-	"github.com/cyra/airprint-cups-plugin/internal/daemon"
-	"github.com/cyra/airprint-cups-plugin/internal/media"
+	"github.com/WaffleThief123/airprint-bridge/internal/cups"
+	"github.com/WaffleThief123/airprint-bridge/internal/daemon"
+	"github.com/WaffleThief123/airprint-bridge/internal/media"
 )
 
 // Version information (set at build time)

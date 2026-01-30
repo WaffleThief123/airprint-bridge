@@ -9,8 +9,8 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/cyra/airprint-cups-plugin/internal/airprint"
-	"github.com/cyra/airprint-cups-plugin/internal/cups"
+	"github.com/WaffleThief123/airprint-bridge/internal/airprint"
+	"github.com/WaffleThief123/airprint-bridge/internal/cups"
 )
 
 // Manager handles the lifecycle of Avahi service files
