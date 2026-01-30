@@ -122,6 +122,16 @@ media:
     default_size: oe_4x6-label_4x6in
 ```
 
+### Listing Printers and Profiles
+
+```bash
+# List available printers from CUPS
+airprint-bridge --list-printers
+
+# List available media profiles
+airprint-bridge --list-profiles
+```
+
 ### Finding Media Size Names
 
 Query your printer's supported sizes from CUPS:
