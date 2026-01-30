@@ -56,6 +56,7 @@ type Server struct {
 	cupsClient  CUPSClient
 	printerName string
 	printerURI  string
+	printer     PrinterConfig
 	log         zerolog.Logger
 }
 
@@ -68,12 +69,15 @@ type CUPSClient interface {
 
 // PrinterConfig holds printer information for advertising
 type PrinterConfig struct {
-	Name        string
-	MakeModel   string
-	Location    string
-	Color       bool
-	Duplex      bool
-	Resolutions []int
+	Name           string
+	MakeModel      string
+	Location       string
+	Color          bool
+	Duplex         bool
+	Resolutions    []int
+	MediaSupported []string
+	MediaReady     []string
+	MediaDefault   string
 }
 
 // NewServer creates a new IPP server
@@ -83,6 +87,7 @@ func NewServer(listenAddr string, cupsClient CUPSClient, printer PrinterConfig, 
 		cupsClient:  cupsClient,
 		printerName: printer.Name,
 		printerURI:  fmt.Sprintf("ipp://cups.local:%s/printers/%s", strings.Split(listenAddr, ":")[1], printer.Name),
+		printer:     printer,
 		log:         log.With().Str("component", "ipp-server").Logger(),
 	}
 }
@@ -180,12 +185,12 @@ func (s *Server) handleGetPrinterAttributes(requestID uint32, printerName string
 	_ = binary.Write(buf, binary.BigEndian, requestID)
 
 	// Operation attributes
-	buf.WriteByte(TagOperationAttrs)
+	_ = buf.WriteByte(TagOperationAttrs)
 	s.writeAttribute(buf, TagCharset, "attributes-charset", "utf-8")
 	s.writeAttribute(buf, TagNaturalLang, "attributes-natural-language", "en-us")
 
 	// Printer attributes
-	buf.WriteByte(TagPrinterAttrs)
+	_ = buf.WriteByte(TagPrinterAttrs)
 
 	// Required AirPrint attributes
 	s.writeAttribute(buf, TagURI, "printer-uri-supported", s.printerURI)
@@ -209,35 +214,77 @@ func (s *Server) handleGetPrinterAttributes(requestID uint32, printerName string
 	s.writeAttribute(buf, TagBoolean, "printer-is-accepting-jobs", true)
 	s.writeAttribute(buf, TagInteger, "queued-job-count", int32(0))
 	s.writeAttribute(buf, TagKeyword, "pdl-override-supported", "attempted")
-	s.writeAttribute(buf, TagNameWithoutLang, "printer-make-and-model", "Zebra ZPL Label Printer")
-	s.writeAttribute(buf, TagTextWithoutLang, "printer-location", "Local")
-	s.writeAttribute(buf, TagBoolean, "color-supported", false)
 
-	// Media sizes - common labels
-	s.writeAttribute(buf, TagKeyword, "media-default", "oe_4x6-label_4x6in")
-	s.writeAttributeMulti(buf, TagKeyword, "media-supported", []string{
-		"oe_4x6-label_4x6in",
-		"oe_4x3-label_4x3in",
-		"oe_4x4-label_4x4in",
-		"oe_3x2-label_3x2in",
-		"oe_2x1-label_2x1in",
-	})
+	// Use actual printer info
+	makeModel := s.printer.MakeModel
+	if makeModel == "" {
+		makeModel = s.printerName
+	}
+	s.writeAttribute(buf, TagNameWithoutLang, "printer-make-and-model", makeModel)
 
-	// Sides (no duplex for labels)
-	s.writeAttribute(buf, TagKeyword, "sides-supported", "one-sided")
-	s.writeAttribute(buf, TagKeyword, "sides-default", "one-sided")
+	location := s.printer.Location
+	if location == "" {
+		location = "Local"
+	}
+	s.writeAttribute(buf, TagTextWithoutLang, "printer-location", location)
 
-	// URF capabilities
-	s.writeAttribute(buf, TagKeyword, "urf-supported", "W8")
-	s.writeAttributeMulti(buf, TagKeyword, "urf-supported", []string{
-		"CP255",
-		"RS203",
-		"DM1",
-		"V1.4",
-	})
+	s.writeAttribute(buf, TagBoolean, "color-supported", s.printer.Color)
+
+	// Media sizes from actual printer
+	// Prefer media-ready (what's loaded) over media-supported (all possible)
+	mediaList := s.printer.MediaReady
+	if len(mediaList) == 0 {
+		mediaList = s.printer.MediaSupported
+	}
+
+	mediaDefault := s.printer.MediaDefault
+	if mediaDefault == "" && len(mediaList) > 0 {
+		mediaDefault = mediaList[0]
+	}
+
+	if mediaDefault != "" {
+		s.writeAttribute(buf, TagKeyword, "media-default", mediaDefault)
+	}
+	if len(mediaList) > 0 {
+		s.writeAttribute(buf, TagKeyword, "media-supported", mediaList[0])
+		if len(mediaList) > 1 {
+			s.writeAttributeMulti(buf, TagKeyword, "media-supported", mediaList[1:])
+		}
+	}
+
+	// Sides
+	if s.printer.Duplex {
+		s.writeAttribute(buf, TagKeyword, "sides-supported", "one-sided")
+		s.writeAttributeMulti(buf, TagKeyword, "sides-supported", []string{
+			"two-sided-long-edge",
+			"two-sided-short-edge",
+		})
+		s.writeAttribute(buf, TagKeyword, "sides-default", "one-sided")
+	} else {
+		s.writeAttribute(buf, TagKeyword, "sides-supported", "one-sided")
+		s.writeAttribute(buf, TagKeyword, "sides-default", "one-sided")
+	}
+
+	// URF capabilities - build from printer info
+	urfCaps := []string{"V1.4", "DM1"}
+	if s.printer.Color {
+		urfCaps = append(urfCaps, "SRGB24")
+	} else {
+		urfCaps = append(urfCaps, "W8")
+	}
+	if len(s.printer.Resolutions) > 0 {
+		urfCaps = append(urfCaps, fmt.Sprintf("RS%d", s.printer.Resolutions[0]))
+	} else {
+		urfCaps = append(urfCaps, "RS300")
+	}
+
+	s.writeAttribute(buf, TagKeyword, "urf-supported", urfCaps[0])
+	if len(urfCaps) > 1 {
+		s.writeAttributeMulti(buf, TagKeyword, "urf-supported", urfCaps[1:])
+	}
 
 	// End
-	buf.WriteByte(TagEnd)
+	_ = buf.WriteByte(TagEnd)
 
 	return buf.Bytes()
 }

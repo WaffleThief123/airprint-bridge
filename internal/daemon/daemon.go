@@ -114,13 +114,21 @@ func (d *Daemon) Run(ctx context.Context) error {
 	if len(printers) > 0 {
 		p := printers[0]
 		printerConfig = ipp.PrinterConfig{
-			Name:        p.Name,
-			MakeModel:   p.MakeModel,
-			Location:    p.Location,
-			Color:       p.ColorSupported,
-			Duplex:      p.DuplexSupported,
-			Resolutions: p.Resolutions,
+			Name:           p.Name,
+			MakeModel:      p.MakeModel,
+			Location:       p.Location,
+			Color:          p.ColorSupported,
+			Duplex:         p.DuplexSupported,
+			Resolutions:    p.Resolutions,
+			MediaSupported: p.MediaSupported,
+			MediaReady:     p.MediaReady,
+			MediaDefault:   p.MediaDefault,
 		}
+		d.log.Debug().
+			Strs("media_supported", p.MediaSupported).
+			Strs("media_ready", p.MediaReady).
+			Str("media_default", p.MediaDefault).
+			Msg("printer media configuration")
 	}
 
 	ippServer := ipp.NewServer(listenAddr, cupsProxy, printerConfig, d.log)

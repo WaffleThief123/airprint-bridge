@@ -28,6 +28,7 @@ var printerAttributes = []string{
 	"printer-resolution-supported",
 	"media-supported",
 	"media-ready",
+	"media-default",
 }
 
 // NewClient creates a new CUPS client
@@ -131,6 +132,10 @@ func (c *Client) parsePrinterAttributes(name string, attrs ipp.Attributes) Print
 
 	if media := getAttributeStrings(attrs, "media-ready"); len(media) > 0 {
 		printer.MediaReady = media
+	}
+
+	if v := getAttributeString(attrs, "media-default"); v != "" {
+		printer.MediaDefault = v
 	}
 
 	return printer

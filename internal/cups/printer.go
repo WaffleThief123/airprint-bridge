@@ -17,6 +17,7 @@ type Printer struct {
 	Resolutions     []int    // DPI values
 	MediaSupported  []string // Paper sizes (e.g., "iso_a4_210x297mm")
 	MediaReady      []string // Currently loaded paper
+	MediaDefault    string   // Default paper size
 }
 
 // PrinterState represents the CUPS printer state
