@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Run tests
+        run: go test -v ./...
+
+      - name: Get version
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build binaries
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          COMMIT=$(git rev-parse --short HEAD)
+          LDFLAGS="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}"
+
+          # Linux amd64
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o dist/airprint-bridge-linux-amd64 ./cmd/airprint-bridge
+
+          # Linux arm64
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o dist/airprint-bridge-linux-arm64 ./cmd/airprint-bridge
+
+          # Linux arm (armv7)
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -ldflags "${LDFLAGS}" -o dist/airprint-bridge-linux-armv7 ./cmd/airprint-bridge
+
+          # Linux arm (armv6 - for older Raspberry Pi)
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build -ldflags "${LDFLAGS}" -o dist/airprint-bridge-linux-armv6 ./cmd/airprint-bridge
+
+      - name: Create checksums
+        run: |
+          cd dist
+          sha256sum airprint-bridge-* > checksums.txt
+
+      - name: Create tarballs
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          cd dist
+
+          for binary in airprint-bridge-*; do
+            if [[ "$binary" != *.txt ]]; then
+              arch="${binary#airprint-bridge-}"
+              mkdir -p "airprint-bridge-${VERSION}-${arch}"
+              cp "$binary" "airprint-bridge-${VERSION}-${arch}/airprint-bridge"
+              cp ../configs/airprint-bridge.yaml "airprint-bridge-${VERSION}-${arch}/"
+              cp ../configs/airprint-bridge.openrc "airprint-bridge-${VERSION}-${arch}/"
+              cp ../README.md "airprint-bridge-${VERSION}-${arch}/"
+              tar -czvf "airprint-bridge-${VERSION}-${arch}.tar.gz" "airprint-bridge-${VERSION}-${arch}"
+              rm -rf "airprint-bridge-${VERSION}-${arch}"
+            fi
+          done
+
+          # Update checksums to include tarballs
+          sha256sum *.tar.gz >> checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/checksums.txt
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
