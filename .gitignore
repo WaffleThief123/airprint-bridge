@@ -18,3 +18,4 @@ coverage.html
 # OS
 .DS_Store
 Thumbs.db
+dist/

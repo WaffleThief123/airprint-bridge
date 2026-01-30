@@ -21,45 +21,82 @@ The IPP proxy approach avoids issues with CUPS access controls, TLS configuratio
 
 ## Requirements
 
-- Go 1.21+ (for building)
 - CUPS (cupsd)
 - cups-filters (for URF support)
 - Avahi (avahi-daemon)
 - D-Bus (required by Avahi)
 
-### Alpine Linux
-
-```bash
-apk add cups cups-filters avahi dbus
-rc-service dbus start
-rc-service avahi-daemon start
-rc-service cupsd start
-```
-
-## Building
-
-```bash
-# Download dependencies
-make deps
-
-# Build
-make build
-
-# Or build a static binary
-make build-static
-```
-
 ## Installation
 
+### Quick Install (Recommended)
+
+Download the latest release and run the install script:
+
 ```bash
-# Install binary, config, and service
-sudo make install
+# Download and extract
+tar -xzf airprint-bridge-*-linux-amd64.tar.gz
+cd airprint-bridge-*
 
-# Enable at boot
-sudo rc-update add airprint-bridge default
+# Install (as root)
+sudo ./install.sh
+```
 
-# Start the service
-sudo rc-service airprint-bridge start
+The install script automatically:
+- Detects your OS (Alpine, Debian/Ubuntu, Arch, RHEL/CentOS/Fedora, macOS)
+- Installs dependencies (cups, cups-filters, avahi on Linux)
+- Installs the binary and config file
+- Sets up the appropriate service (OpenRC, systemd, or launchd)
+
+#### Install Script Options
+
+```bash
+# Install without dependencies (if already installed)
+sudo ./install.sh --no-deps
+
+# Install without service files
+sudo ./install.sh --no-service
+
+# Uninstall
+sudo ./install.sh uninstall
+
+# Show help
+./install.sh --help
+```
+
+### Starting the Service
+
+**Alpine (OpenRC):**
+```bash
+rc-update add airprint-bridge default
+rc-service airprint-bridge start
+```
+
+**Debian/Ubuntu/Arch/RHEL (systemd):**
+```bash
+systemctl enable airprint-bridge
+systemctl start airprint-bridge
+```
+
+**macOS (launchd):**
+```bash
+sudo launchctl load /Library/LaunchDaemons/com.github.wafflethief123.airprint-bridge.plist
+sudo launchctl start com.github.wafflethief123.airprint-bridge
+```
+
+### Building from Source
+
+```bash
+# Install Go 1.21+
+# Clone the repo
+git clone https://github.com/WaffleThief123/airprint-bridge.git
+cd airprint-bridge
+
+# Build
+make deps
+make build
+
+# Create distribution package
+make dist
 ```
 
 ## Configuration
@@ -184,7 +221,9 @@ grep -i urf /etc/cups/mime.types
 
 ### Printers not appearing on iOS
 
-1. Check Avahi is running: `rc-service avahi-daemon status`
+1. Check Avahi is running:
+   - Alpine: `rc-service avahi-daemon status`
+   - systemd: `systemctl status avahi-daemon`
 2. Check service files exist: `ls /etc/avahi/services/airprint-*`
 3. Check firewall allows mDNS (UDP 5353) and IPP (TCP 8631)
 4. Verify printer is shared in CUPS
@@ -192,7 +231,10 @@ grep -i urf /etc/cups/mime.types
 ### Check daemon logs
 
 ```bash
-# View logs
+# View logs (systemd)
+journalctl -u airprint-bridge -f
+
+# View logs (Alpine)
 tail -f /var/log/airprint-bridge.log
 
 # Or run in foreground with debug logging
@@ -208,11 +250,11 @@ airprint-bridge --log-level debug --log-format console
 ### Reload after config changes
 
 ```bash
-# Send SIGHUP to reload
-rc-service airprint-bridge reload
-
-# Or restart
+# Alpine (OpenRC)
 rc-service airprint-bridge restart
+
+# systemd
+systemctl restart airprint-bridge
 ```
 
 ## Signals
