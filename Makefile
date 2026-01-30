@@ -41,53 +41,18 @@ clean:
 	rm -rf dist/
 	go clean
 
-# Create distribution package
-DIST_DIR := dist
-DIST_NAME := $(BINARY_NAME)-$(VERSION)
+# Create distribution packages using GoReleaser
+dist:
+	@echo "Building snapshot release..."
+	goreleaser build --snapshot --clean
 
-dist: build
-	@echo "Creating distribution package..."
-	mkdir -p $(DIST_DIR)/$(DIST_NAME)
-	cp $(BINARY_NAME) $(DIST_DIR)/$(DIST_NAME)/
-	cp scripts/install.sh $(DIST_DIR)/$(DIST_NAME)/
-	cp README.md $(DIST_DIR)/$(DIST_NAME)/
-	cp LICENSE $(DIST_DIR)/$(DIST_NAME)/ 2>/dev/null || echo "MIT" > $(DIST_DIR)/$(DIST_NAME)/LICENSE
-	cd $(DIST_DIR) && tar -czvf $(DIST_NAME)-linux-amd64.tar.gz $(DIST_NAME)
-	@echo "Created $(DIST_DIR)/$(DIST_NAME)-linux-amd64.tar.gz"
-
-# Build for multiple architectures
 dist-all:
-	@echo "Building for multiple architectures..."
-	mkdir -p $(DIST_DIR)
-	# Linux amd64
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/airprint-bridge
-	# Linux arm64
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-linux-arm64 ./cmd/airprint-bridge
-	# Linux armv7
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-linux-armv7 ./cmd/airprint-bridge
-	# macOS arm64 (Apple Silicon)
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/airprint-bridge
-	# macOS amd64 (Intel)
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/airprint-bridge
-	# Create Linux packages
-	@for arch in amd64 arm64 armv7; do \
-		mkdir -p $(DIST_DIR)/$(DIST_NAME)-linux-$$arch; \
-		cp $(DIST_DIR)/$(BINARY_NAME)-linux-$$arch $(DIST_DIR)/$(DIST_NAME)-linux-$$arch/$(BINARY_NAME); \
-		cp scripts/install.sh $(DIST_DIR)/$(DIST_NAME)-linux-$$arch/; \
-		cp README.md $(DIST_DIR)/$(DIST_NAME)-linux-$$arch/; \
-		cp LICENSE $(DIST_DIR)/$(DIST_NAME)-linux-$$arch/ 2>/dev/null || echo "MIT" > $(DIST_DIR)/$(DIST_NAME)-linux-$$arch/LICENSE; \
-		cd $(DIST_DIR) && tar -czvf $(DIST_NAME)-linux-$$arch.tar.gz $(DIST_NAME)-linux-$$arch && cd ..; \
-	done
-	# Create macOS packages
-	@for arch in arm64 amd64; do \
-		mkdir -p $(DIST_DIR)/$(DIST_NAME)-darwin-$$arch; \
-		cp $(DIST_DIR)/$(BINARY_NAME)-darwin-$$arch $(DIST_DIR)/$(DIST_NAME)-darwin-$$arch/$(BINARY_NAME); \
-		cp scripts/install.sh $(DIST_DIR)/$(DIST_NAME)-darwin-$$arch/; \
-		cp README.md $(DIST_DIR)/$(DIST_NAME)-darwin-$$arch/; \
-		cp LICENSE $(DIST_DIR)/$(DIST_NAME)-darwin-$$arch/ 2>/dev/null || echo "MIT" > $(DIST_DIR)/$(DIST_NAME)-darwin-$$arch/LICENSE; \
-		cd $(DIST_DIR) && tar -czvf $(DIST_NAME)-darwin-$$arch.tar.gz $(DIST_NAME)-darwin-$$arch && cd ..; \
-	done
-	@echo "Created distribution packages in $(DIST_DIR)/"
+	@echo "Building full snapshot release with archives..."
+	goreleaser release --snapshot --clean
+
+# Check GoReleaser config
+check-release:
+	goreleaser check
 
 deps:
 	go mod download
@@ -121,15 +86,16 @@ uninstall:
 
 help:
 	@echo "Available targets:"
-	@echo "  build        - Build the binary"
-	@echo "  build-static - Build a static binary for Linux amd64"
-	@echo "  test         - Run tests"
-	@echo "  lint         - Run linters"
-	@echo "  fmt          - Format code"
-	@echo "  clean        - Remove build artifacts"
-	@echo "  deps         - Download and tidy dependencies"
-	@echo "  install      - Install binary, config, and service (Alpine)"
-	@echo "  uninstall    - Remove installed files"
-	@echo "  dist         - Create distribution package (amd64)"
-	@echo "  dist-all     - Create packages for all architectures"
-	@echo "  help         - Show this help"
+	@echo "  build         - Build the binary"
+	@echo "  build-static  - Build a static binary for Linux amd64"
+	@echo "  test          - Run tests"
+	@echo "  lint          - Run linters"
+	@echo "  fmt           - Format code"
+	@echo "  clean         - Remove build artifacts"
+	@echo "  deps          - Download and tidy dependencies"
+	@echo "  install       - Install binary, config, and service (Alpine)"
+	@echo "  uninstall     - Remove installed files"
+	@echo "  dist          - Build binaries for all platforms (goreleaser)"
+	@echo "  dist-all      - Build full release with archives (goreleaser)"
+	@echo "  check-release - Validate goreleaser config"
+	@echo "  help          - Show this help"

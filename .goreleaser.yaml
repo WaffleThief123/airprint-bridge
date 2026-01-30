@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: airprint-bridge
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+
+builds:
+  - id: airprint-bridge
+    main: ./cmd/airprint-bridge
+    binary: airprint-bridge
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - 6
+      - 7
+    ignore:
+      - goos: darwin
+        goarch: arm
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}
+    files:
+      - README.md
+      - LICENSE
+      - scripts/install.sh
+      - configs/airprint-bridge.yaml
+      - configs/airprint-bridge.openrc
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: 'New Features'
+      regexp: '^feat'
+      order: 0
+    - title: 'Bug Fixes'
+      regexp: '^fix'
+      order: 1
+    - title: 'Other Changes'
+      order: 999
+
+release:
+  github:
+    owner: WaffleThief123
+    name: airprint-bridge
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## AirPrint Bridge {{ .Version }}
+
+    ### Installation
+
+    Download the appropriate archive for your system and run:
+    ```bash
+    tar -xzf airprint-bridge-{{ .Version }}-*.tar.gz
+    cd airprint-bridge-{{ .Version }}-*
+    sudo ./install.sh
+    ```
+
+    See the [README](https://github.com/WaffleThief123/airprint-bridge#installation) for more details.
+  footer: |
+    ---
+    **Full Changelog**: https://github.com/WaffleThief123/airprint-bridge/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+# Build for local testing without publishing
+# Run: goreleaser build --snapshot --clean

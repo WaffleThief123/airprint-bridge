@@ -95,9 +95,14 @@ cd airprint-bridge
 make deps
 make build
 
-# Create distribution package
-make dist
+# Create distribution packages (requires goreleaser)
+make dist      # Build binaries only
+make dist-all  # Build full release with archives
 ```
+
+Releases are built using [GoReleaser](https://goreleaser.com/) and include binaries for:
+- Linux: amd64, arm64, armv6, armv7
+- macOS: amd64 (Intel), arm64 (Apple Silicon)
 
 ## Configuration
 
