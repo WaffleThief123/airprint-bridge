@@ -1,0 +1,36 @@
+# AirPrint Bridge Configuration
+
+# CUPS server settings
+cups:
+  host: localhost
+  port: 631
+
+# Monitoring settings
+monitor:
+  # How often to poll CUPS for printer changes
+  poll_interval: 30s
+
+# Avahi service file settings
+avahi:
+  # Directory where Avahi looks for service files
+  service_dir: /etc/avahi/services
+  # Prefix for generated service files (helps identify our files)
+  file_prefix: airprint-
+
+# Printer filtering
+printers:
+  # Only advertise printers marked as shared in CUPS
+  shared_only: true
+  # List of printer names to exclude from AirPrint
+  exclude: []
+  # Example:
+  # exclude:
+  #   - PDF_Printer
+  #   - CUPS_PDF
+
+# Logging settings
+log:
+  # Log level: debug, info, warn, error
+  level: info
+  # Log format: console (human-readable) or json
+  format: console

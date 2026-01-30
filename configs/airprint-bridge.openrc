@@ -1,0 +1,46 @@
+#!/sbin/openrc-run
+# OpenRC service script for AirPrint Bridge
+
+name="airprint-bridge"
+description="AirPrint Bridge for CUPS printers"
+
+command="/usr/bin/airprint-bridge"
+command_args="--config /etc/airprint-bridge/airprint-bridge.yaml --log-format json"
+command_background="yes"
+pidfile="/run/${RC_SVCNAME}.pid"
+
+# Logging
+output_log="/var/log/airprint-bridge.log"
+error_log="/var/log/airprint-bridge.log"
+
+# Dependencies
+depend() {
+    need cupsd avahi-daemon dbus
+    after network
+}
+
+start_pre() {
+    # Ensure config directory exists
+    checkpath -d -m 0755 /etc/airprint-bridge
+
+    # Ensure log file exists and is writable
+    checkpath -f -m 0644 -o root:root /var/log/airprint-bridge.log
+
+    # Verify Avahi services directory exists
+    if [ ! -d /etc/avahi/services ]; then
+        eerror "Avahi services directory not found"
+        return 1
+    fi
+}
+
+stop_post() {
+    # Clean up any leftover service files on stop
+    # The daemon should do this itself, but this is a safety net
+    rm -f /etc/avahi/services/airprint-*.service 2>/dev/null || true
+}
+
+reload() {
+    ebegin "Reloading ${RC_SVCNAME}"
+    start-stop-daemon --signal HUP --pidfile "${pidfile}"
+    eend $?
+}
