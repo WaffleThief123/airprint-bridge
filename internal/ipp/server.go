@@ -52,12 +52,11 @@ const (
 
 // Server is an IPP proxy server
 type Server struct {
-	listenAddr   string
-	cupsClient   CUPSClient
-	printerName  string
-	printerURI   string
-	log          zerolog.Logger
-	jobCounter   int32
+	listenAddr  string
+	cupsClient  CUPSClient
+	printerName string
+	printerURI  string
+	log         zerolog.Logger
 }
 
 // CUPSClient interface for forwarding jobs
@@ -101,7 +100,7 @@ func (s *Server) ListenAndServe() error {
 func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("AirPrint Bridge IPP Server"))
+		_, _ = w.Write([]byte("AirPrint Bridge IPP Server"))
 		return
 	}
 	s.handleIPP(w, r, "")
@@ -167,7 +166,7 @@ func (s *Server) handleIPP(w http.ResponseWriter, r *http.Request, printerName s
 
 	w.Header().Set("Content-Type", "application/ipp")
 	w.WriteHeader(http.StatusOK)
-	w.Write(response)
+	_, _ = w.Write(response)
 }
 
 func (s *Server) handleGetPrinterAttributes(requestID uint32, printerName string) []byte {
@@ -176,9 +175,9 @@ func (s *Server) handleGetPrinterAttributes(requestID uint32, printerName string
 	buf := &bytes.Buffer{}
 
 	// IPP header
-	binary.Write(buf, binary.BigEndian, uint16(0x0200)) // version 2.0
-	binary.Write(buf, binary.BigEndian, uint16(StatusOK))
-	binary.Write(buf, binary.BigEndian, requestID)
+	_ = binary.Write(buf, binary.BigEndian, uint16(0x0200)) // version 2.0
+	_ = binary.Write(buf, binary.BigEndian, uint16(StatusOK))
+	_ = binary.Write(buf, binary.BigEndian, requestID)
 
 	// Operation attributes
 	buf.WriteByte(TagOperationAttrs)
@@ -266,9 +265,9 @@ func (s *Server) handlePrintJob(requestID uint32, printerName string, body []byt
 
 	// Build success response
 	buf := &bytes.Buffer{}
-	binary.Write(buf, binary.BigEndian, uint16(0x0200))
-	binary.Write(buf, binary.BigEndian, uint16(StatusOK))
-	binary.Write(buf, binary.BigEndian, requestID)
+	_ = binary.Write(buf, binary.BigEndian, uint16(0x0200))
+	_ = binary.Write(buf, binary.BigEndian, uint16(StatusOK))
+	_ = binary.Write(buf, binary.BigEndian, requestID)
 
 	buf.WriteByte(TagOperationAttrs)
 	s.writeAttribute(buf, TagCharset, "attributes-charset", "utf-8")
@@ -288,9 +287,9 @@ func (s *Server) handleValidateJob(requestID uint32) []byte {
 	s.log.Debug().Msg("handling Validate-Job")
 
 	buf := &bytes.Buffer{}
-	binary.Write(buf, binary.BigEndian, uint16(0x0200))
-	binary.Write(buf, binary.BigEndian, uint16(StatusOK))
-	binary.Write(buf, binary.BigEndian, requestID)
+	_ = binary.Write(buf, binary.BigEndian, uint16(0x0200))
+	_ = binary.Write(buf, binary.BigEndian, uint16(StatusOK))
+	_ = binary.Write(buf, binary.BigEndian, requestID)
 
 	buf.WriteByte(TagOperationAttrs)
 	s.writeAttribute(buf, TagCharset, "attributes-charset", "utf-8")
@@ -305,9 +304,9 @@ func (s *Server) handleGetJobs(requestID uint32) []byte {
 	s.log.Debug().Msg("handling Get-Jobs")
 
 	buf := &bytes.Buffer{}
-	binary.Write(buf, binary.BigEndian, uint16(0x0200))
-	binary.Write(buf, binary.BigEndian, uint16(StatusOK))
-	binary.Write(buf, binary.BigEndian, requestID)
+	_ = binary.Write(buf, binary.BigEndian, uint16(0x0200))
+	_ = binary.Write(buf, binary.BigEndian, uint16(StatusOK))
+	_ = binary.Write(buf, binary.BigEndian, requestID)
 
 	buf.WriteByte(TagOperationAttrs)
 	s.writeAttribute(buf, TagCharset, "attributes-charset", "utf-8")
@@ -319,13 +318,13 @@ func (s *Server) handleGetJobs(requestID uint32) []byte {
 	return buf.Bytes()
 }
 
-func (s *Server) handleGetJobAttributes(requestID uint32, body []byte) []byte {
+func (s *Server) handleGetJobAttributes(requestID uint32, _ []byte) []byte {
 	s.log.Debug().Msg("handling Get-Job-Attributes")
 
 	buf := &bytes.Buffer{}
-	binary.Write(buf, binary.BigEndian, uint16(0x0200))
-	binary.Write(buf, binary.BigEndian, uint16(StatusOK))
-	binary.Write(buf, binary.BigEndian, requestID)
+	_ = binary.Write(buf, binary.BigEndian, uint16(0x0200))
+	_ = binary.Write(buf, binary.BigEndian, uint16(StatusOK))
+	_ = binary.Write(buf, binary.BigEndian, requestID)
 
 	buf.WriteByte(TagOperationAttrs)
 	s.writeAttribute(buf, TagCharset, "attributes-charset", "utf-8")
@@ -340,13 +339,13 @@ func (s *Server) handleGetJobAttributes(requestID uint32, body []byte) []byte {
 	return buf.Bytes()
 }
 
-func (s *Server) handleCancelJob(requestID uint32, body []byte) []byte {
+func (s *Server) handleCancelJob(requestID uint32, _ []byte) []byte {
 	s.log.Debug().Msg("handling Cancel-Job")
 
 	buf := &bytes.Buffer{}
-	binary.Write(buf, binary.BigEndian, uint16(0x0200))
-	binary.Write(buf, binary.BigEndian, uint16(StatusOK))
-	binary.Write(buf, binary.BigEndian, requestID)
+	_ = binary.Write(buf, binary.BigEndian, uint16(0x0200))
+	_ = binary.Write(buf, binary.BigEndian, uint16(StatusOK))
+	_ = binary.Write(buf, binary.BigEndian, requestID)
 
 	buf.WriteByte(TagOperationAttrs)
 	s.writeAttribute(buf, TagCharset, "attributes-charset", "utf-8")
@@ -359,9 +358,9 @@ func (s *Server) handleCancelJob(requestID uint32, body []byte) []byte {
 
 func (s *Server) buildErrorResponse(requestID uint32, status uint16) []byte {
 	buf := &bytes.Buffer{}
-	binary.Write(buf, binary.BigEndian, uint16(0x0200))
-	binary.Write(buf, binary.BigEndian, status)
-	binary.Write(buf, binary.BigEndian, requestID)
+	_ = binary.Write(buf, binary.BigEndian, uint16(0x0200))
+	_ = binary.Write(buf, binary.BigEndian, status)
+	_ = binary.Write(buf, binary.BigEndian, requestID)
 
 	buf.WriteByte(TagOperationAttrs)
 	s.writeAttribute(buf, TagCharset, "attributes-charset", "utf-8")
@@ -373,33 +372,33 @@ func (s *Server) buildErrorResponse(requestID uint32, status uint16) []byte {
 }
 
 func (s *Server) writeAttribute(buf *bytes.Buffer, tag byte, name string, value interface{}) {
-	buf.WriteByte(tag)
-	binary.Write(buf, binary.BigEndian, uint16(len(name)))
-	buf.WriteString(name)
+	_ = buf.WriteByte(tag)
+	_ = binary.Write(buf, binary.BigEndian, uint16(len(name)))
+	_, _ = buf.WriteString(name)
 
 	switch v := value.(type) {
 	case string:
-		binary.Write(buf, binary.BigEndian, uint16(len(v)))
-		buf.WriteString(v)
+		_ = binary.Write(buf, binary.BigEndian, uint16(len(v)))
+		_, _ = buf.WriteString(v)
 	case int32:
-		binary.Write(buf, binary.BigEndian, uint16(4))
-		binary.Write(buf, binary.BigEndian, v)
+		_ = binary.Write(buf, binary.BigEndian, uint16(4))
+		_ = binary.Write(buf, binary.BigEndian, v)
 	case bool:
-		binary.Write(buf, binary.BigEndian, uint16(1))
+		_ = binary.Write(buf, binary.BigEndian, uint16(1))
 		if v {
-			buf.WriteByte(1)
+			_ = buf.WriteByte(1)
 		} else {
-			buf.WriteByte(0)
+			_ = buf.WriteByte(0)
 		}
 	}
 }
 
-func (s *Server) writeAttributeMulti(buf *bytes.Buffer, tag byte, name string, values []string) {
+func (s *Server) writeAttributeMulti(buf *bytes.Buffer, tag byte, _ string, values []string) {
 	for _, v := range values {
-		buf.WriteByte(tag)
-		binary.Write(buf, binary.BigEndian, uint16(0)) // empty name = additional value
-		binary.Write(buf, binary.BigEndian, uint16(len(v)))
-		buf.WriteString(v)
+		_ = buf.WriteByte(tag)
+		_ = binary.Write(buf, binary.BigEndian, uint16(0)) // empty name = additional value
+		_ = binary.Write(buf, binary.BigEndian, uint16(len(v)))
+		_, _ = buf.WriteString(v)
 	}
 }
 
@@ -414,19 +413,19 @@ func (s *Server) writeOperationsSupported(buf *bytes.Buffer) {
 	}
 
 	// First value with name
-	buf.WriteByte(TagEnum)
+	_ = buf.WriteByte(TagEnum)
 	name := "operations-supported"
-	binary.Write(buf, binary.BigEndian, uint16(len(name)))
-	buf.WriteString(name)
-	binary.Write(buf, binary.BigEndian, uint16(4))
-	binary.Write(buf, binary.BigEndian, ops[0])
+	_ = binary.Write(buf, binary.BigEndian, uint16(len(name)))
+	_, _ = buf.WriteString(name)
+	_ = binary.Write(buf, binary.BigEndian, uint16(4))
+	_ = binary.Write(buf, binary.BigEndian, ops[0])
 
 	// Additional values without name
 	for _, op := range ops[1:] {
-		buf.WriteByte(TagEnum)
-		binary.Write(buf, binary.BigEndian, uint16(0))
-		binary.Write(buf, binary.BigEndian, uint16(4))
-		binary.Write(buf, binary.BigEndian, op)
+		_ = buf.WriteByte(TagEnum)
+		_ = binary.Write(buf, binary.BigEndian, uint16(0))
+		_ = binary.Write(buf, binary.BigEndian, uint16(4))
+		_ = binary.Write(buf, binary.BigEndian, op)
 	}
 }
 

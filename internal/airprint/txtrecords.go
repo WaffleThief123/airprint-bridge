@@ -115,22 +115,6 @@ func (t *TXTRecords) Pairs() []string {
 	return pairs
 }
 
-// normalizePaperSizes converts CUPS media names to standard short forms
-func normalizePaperSizes(media []string) []string {
-	seen := make(map[string]bool)
-	var result []string
-
-	for _, m := range media {
-		normalized := cups.NormalizePaperSize(m)
-		if !seen[normalized] {
-			seen[normalized] = true
-			result = append(result, normalized)
-		}
-	}
-
-	return result
-}
-
 // sanitizeProduct cleans the product name for use in TXT records
 func sanitizeProduct(model string) string {
 	if model == "" {
