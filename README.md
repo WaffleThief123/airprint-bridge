@@ -6,16 +6,18 @@ A lightweight Go daemon that exposes CUPS printers as AirPrint-compatible printe
 
 ```
 iOS Device → mDNS Discovery → Avahi (reads service files)
-iOS Device → IPP Print Job → CUPS (port 631) → cups-filters (URF→PDF) → Printer
-Daemon → Monitors CUPS → Generates/Updates Avahi service files
+iOS Device → IPP Print Job → AirPrint Bridge (port 8631) → CUPS → Printer
+Daemon → Monitors CUPS → Generates Avahi service files
 ```
 
 The daemon:
 1. Queries CUPS for available printers and their capabilities
-2. Generates Avahi service files with proper AirPrint TXT records
-3. Monitors for printer changes and automatically updates advertisements
+2. Runs an IPP proxy server that iOS/macOS connects to
+3. Generates Avahi service files with proper AirPrint TXT records
+4. Forwards print jobs to CUPS
+5. Monitors for printer changes and automatically updates advertisements
 
-CUPS handles the actual IPP printing directly - no proxy needed. The `cups-filters` package provides URF→PDF conversion via `rastertopdf`.
+The IPP proxy approach avoids issues with CUPS access controls, TLS configuration, and hostname resolution that can prevent direct iOS→CUPS printing.
 
 ## Requirements
 
@@ -69,6 +71,9 @@ cups:
   host: localhost
   port: 631
 
+ipp:
+  port: 8631  # Port iOS/macOS connects to
+
 monitor:
   poll_interval: 30s
 
@@ -80,6 +85,49 @@ printers:
   shared_only: true
   exclude:
     - PDF_Printer
+```
+
+## Media Size Profiles
+
+By default, media sizes are queried from CUPS. For label printers and other specialty devices, you can override with built-in profiles or custom sizes.
+
+### Built-in Profiles
+
+| Profile | Printers | Sizes |
+|---------|----------|-------|
+| `zebra-4x6` | Zebra ZPL printers | 4x6, 4x4, 4x3, 4x2, 2.25x1.25 inch |
+| `dymo-labelwriter` | DYMO LabelWriter | Shipping, address, return address labels |
+| `brother-ql` | Brother QL series | 62x100mm, 62x29mm, 29x90mm, etc. |
+| `rollo` | Rollo thermal | 4x6, 4x4, 4x2 inch |
+
+Profiles are auto-detected by matching printer make/model. You can also assign them explicitly.
+
+### Using a Profile
+
+```yaml
+media:
+  - printer: ZTC_ZP_450
+    profile: zebra-4x6
+```
+
+### Custom Media Sizes
+
+```yaml
+media:
+  - printer: My_Label_Printer
+    sizes:
+      - oe_4x6-label_4x6in
+      - oe_4x4-label_4x4in
+      - oe_2x1-label_2x1in
+    default_size: oe_4x6-label_4x6in
+```
+
+### Finding Media Size Names
+
+Query your printer's supported sizes from CUPS:
+
+```bash
+ipptool -tv ipp://localhost/printers/YOUR_PRINTER get-printer-attributes.test | grep media
 ```
 
 ## Verification
@@ -97,6 +145,12 @@ You should see your printers listed with AirPrint TXT records including `URF=`, 
 ```bash
 ls -la /etc/avahi/services/airprint-*.service
 cat /etc/avahi/services/airprint-YourPrinter.service
+```
+
+### Test IPP Server
+
+```bash
+curl -v http://localhost:8631/
 ```
 
 ### Test from iOS
@@ -122,7 +176,7 @@ grep -i urf /etc/cups/mime.types
 
 1. Check Avahi is running: `rc-service avahi-daemon status`
 2. Check service files exist: `ls /etc/avahi/services/airprint-*`
-3. Check firewall allows mDNS (UDP 5353) and IPP (TCP 631)
+3. Check firewall allows mDNS (UDP 5353) and IPP (TCP 8631)
 4. Verify printer is shared in CUPS
 
 ### Check daemon logs
@@ -134,6 +188,12 @@ tail -f /var/log/airprint-bridge.log
 # Or run in foreground with debug logging
 airprint-bridge --log-level debug --log-format console
 ```
+
+### Wrong media sizes showing
+
+1. Check what CUPS reports: `ipptool -tv ipp://localhost/printers/PRINTER get-printer-attributes.test | grep media`
+2. Add a media profile override in config (see Media Size Profiles above)
+3. Restart the daemon
 
 ### Reload after config changes
 
