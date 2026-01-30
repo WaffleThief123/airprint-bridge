@@ -12,6 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/cyra/airprint-cups-plugin/internal/daemon"
+	"github.com/cyra/airprint-cups-plugin/internal/media"
 )
 
 // Version information (set at build time)
@@ -44,6 +45,14 @@ type ConfigFile struct {
 		SharedOnly bool     `yaml:"shared_only"`
 		Exclude    []string `yaml:"exclude"`
 	} `yaml:"printers"`
+
+	// Media overrides per printer
+	Media []struct {
+		Printer      string   `yaml:"printer"`       // Printer name to match
+		Profile      string   `yaml:"profile"`       // Use a built-in profile (e.g., "zebra-4x6")
+		Sizes        []string `yaml:"sizes"`         // Or specify custom sizes
+		DefaultSize  string   `yaml:"default_size"`  // Default media size
+	} `yaml:"media"`
 
 	Log struct {
 		Level  string `yaml:"level"`
@@ -161,6 +170,16 @@ func applyFileConfig(config *daemon.Config, cfg *ConfigFile) {
 	}
 	config.SharedOnly = cfg.Printers.SharedOnly
 	config.ExcludeList = cfg.Printers.Exclude
+
+	// Apply media overrides
+	for _, m := range cfg.Media {
+		config.MediaOverrides = append(config.MediaOverrides, media.ConfigOverride{
+			PrinterName:  m.Printer,
+			ProfileName:  m.Profile,
+			MediaSizes:   m.Sizes,
+			DefaultMedia: m.DefaultSize,
+		})
+	}
 }
 
 func parseLogLevel(level string) zerolog.Level {

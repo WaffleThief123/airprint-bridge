@@ -14,18 +14,20 @@ import (
 	"github.com/cyra/airprint-cups-plugin/internal/avahi"
 	"github.com/cyra/airprint-cups-plugin/internal/cups"
 	"github.com/cyra/airprint-cups-plugin/internal/ipp"
+	"github.com/cyra/airprint-cups-plugin/internal/media"
 )
 
 // Config holds the daemon configuration
 type Config struct {
-	CUPSHost     string
-	CUPSPort     int
-	IPPPort      int // Port for our IPP proxy server
-	PollInterval time.Duration
-	ServiceDir   string
-	FilePrefix   string
-	SharedOnly   bool
-	ExcludeList  []string
+	CUPSHost       string
+	CUPSPort       int
+	IPPPort        int // Port for our IPP proxy server
+	PollInterval   time.Duration
+	ServiceDir     string
+	FilePrefix     string
+	SharedOnly     bool
+	ExcludeList    []string
+	MediaOverrides []media.ConfigOverride // Per-printer media overrides
 }
 
 // DefaultConfig returns sensible defaults
@@ -44,11 +46,12 @@ func DefaultConfig() Config {
 
 // Daemon is the main AirPrint bridge daemon
 type Daemon struct {
-	config       Config
-	cupsClient   *cups.Client
-	avahiManager *avahi.Manager
-	ippServers   map[string]*ipp.Server
-	log          zerolog.Logger
+	config        Config
+	cupsClient    *cups.Client
+	avahiManager  *avahi.Manager
+	mediaRegistry *media.Registry
+	ippServers    map[string]*ipp.Server
+	log           zerolog.Logger
 }
 
 // New creates a new daemon instance
@@ -61,12 +64,19 @@ func New(config Config, log zerolog.Logger) *Daemon {
 		log,
 	)
 
+	// Initialize media registry with builtin profiles and apply config overrides
+	mediaRegistry := media.NewRegistry()
+	if len(config.MediaOverrides) > 0 {
+		mediaRegistry.ApplyConfigOverrides(config.MediaOverrides)
+	}
+
 	return &Daemon{
-		config:       config,
-		cupsClient:   cupsClient,
-		avahiManager: avahiManager,
-		ippServers:   make(map[string]*ipp.Server),
-		log:          log.With().Str("component", "daemon").Logger(),
+		config:        config,
+		cupsClient:    cupsClient,
+		avahiManager:  avahiManager,
+		mediaRegistry: mediaRegistry,
+		ippServers:    make(map[string]*ipp.Server),
+		log:           log.With().Str("component", "daemon").Logger(),
 	}
 }
 
@@ -113,6 +123,35 @@ func (d *Daemon) Run(ctx context.Context) error {
 	var printerConfig ipp.PrinterConfig
 	if len(printers) > 0 {
 		p := printers[0]
+
+		// Get media from CUPS, then apply profile overrides
+		cupsMedia := p.MediaReady
+		if len(cupsMedia) == 0 {
+			cupsMedia = p.MediaSupported
+		}
+		mediaList, mediaDefault := d.mediaRegistry.ApplyProfile(
+			p.Name,
+			p.MakeModel,
+			cupsMedia,
+			p.MediaDefault,
+		)
+
+		// Log whether we used a profile or CUPS defaults
+		if profile := d.mediaRegistry.GetProfile(p.Name, p.MakeModel); profile != nil {
+			d.log.Info().
+				Str("printer", p.Name).
+				Str("profile", profile.Name).
+				Strs("media", mediaList).
+				Str("default", mediaDefault).
+				Msg("using media profile override")
+		} else {
+			d.log.Debug().
+				Str("printer", p.Name).
+				Strs("cups_media", cupsMedia).
+				Str("cups_default", p.MediaDefault).
+				Msg("using CUPS media configuration")
+		}
+
 		printerConfig = ipp.PrinterConfig{
 			Name:           p.Name,
 			MakeModel:      p.MakeModel,
@@ -120,15 +159,10 @@ func (d *Daemon) Run(ctx context.Context) error {
 			Color:          p.ColorSupported,
 			Duplex:         p.DuplexSupported,
 			Resolutions:    p.Resolutions,
-			MediaSupported: p.MediaSupported,
-			MediaReady:     p.MediaReady,
-			MediaDefault:   p.MediaDefault,
+			MediaSupported: mediaList,
+			MediaReady:     mediaList, // Use the same filtered list
+			MediaDefault:   mediaDefault,
 		}
-		d.log.Debug().
-			Strs("media_supported", p.MediaSupported).
-			Strs("media_ready", p.MediaReady).
-			Str("media_default", p.MediaDefault).
-			Msg("printer media configuration")
 	}
 
 	ippServer := ipp.NewServer(listenAddr, cupsProxy, printerConfig, d.log)

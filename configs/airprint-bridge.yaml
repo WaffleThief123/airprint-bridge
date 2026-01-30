@@ -33,6 +33,30 @@ printers:
   #   - PDF_Printer
   #   - CUPS_PDF
 
+# Media size overrides per printer
+# By default, media sizes are queried from CUPS. Use this section to override
+# with a built-in profile or custom sizes.
+#
+# Built-in profiles:
+#   - zebra-4x6: Common Zebra label sizes (4x6, 4x4, 4x3, 4x2, 2.25x1.25)
+#   - dymo-labelwriter: DYMO LabelWriter sizes
+#   - brother-ql: Brother QL label sizes
+#   - rollo: Rollo thermal printer sizes
+#
+# Example using a profile:
+# media:
+#   - printer: ZTC_ZP_450
+#     profile: zebra-4x6
+#
+# Example with custom sizes:
+# media:
+#   - printer: My_Label_Printer
+#     sizes:
+#       - oe_4x6-label_4x6in
+#       - oe_4x4-label_4x4in
+#     default_size: oe_4x6-label_4x6in
+media: []
+
 # Logging settings
 log:
   # Log level: debug, info, warn, error
