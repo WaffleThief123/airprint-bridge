@@ -78,6 +78,10 @@ release:
   mode: replace
   header: |
     ## AirPrint Bridge {{ .Version }}
+    {{- if .Env.RELEASE_NOTES }}
+
+    {{ .Env.RELEASE_NOTES }}
+    {{- end }}
 
     ### Installation
 
