@@ -84,16 +84,6 @@ func main() {
 		os.Exit(0)
 	}
 
-	if *listPrinters {
-		listAvailablePrinters(*cupsHost, *cupsPort)
-		os.Exit(0)
-	}
-
-	if *listProfiles {
-		listAvailableProfiles()
-		os.Exit(0)
-	}
-
 	// Start with defaults
 	config := daemon.DefaultConfig()
 
@@ -111,6 +101,18 @@ func main() {
 	if *cupsPort != 0 {
 		config.CUPSPort = *cupsPort
 	}
+
+	if *listPrinters {
+		listAvailablePrinters(config.CUPSHost, config.CUPSPort)
+		os.Exit(0)
+	}
+
+	if *listProfiles {
+		listAvailableProfiles()
+		os.Exit(0)
+	}
+
+	// Apply remaining command line overrides
 	if *ippPort != 0 {
 		config.IPPPort = *ippPort
 	}
@@ -211,13 +213,6 @@ func parseLogLevel(level string) zerolog.Level {
 }
 
 func listAvailablePrinters(host string, port int) {
-	if host == "" {
-		host = "localhost"
-	}
-	if port == 0 {
-		port = 631
-	}
-
 	client := cups.NewClient(host, port)
 	printers, err := client.GetPrinters()
 	if err != nil {
